@@ -62,6 +62,7 @@ export function Screen604Landing() {
       overlay={swipeOverlay}
       stickyTopFrac={0.135}
       stickyBottomFrac={0.78}
+      scrollEnabled={false}
       zones={[
         // Start the deal — primary CTA on the deal card
         {

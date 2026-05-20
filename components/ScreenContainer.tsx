@@ -77,7 +77,9 @@ export function ScreenContainer({
   const renderZone = (z: TapZone, i: number, basisTop: number) => (
     <Pressable
       key={i}
-      onPress={z.onPress}
+      onPress={() => z.onPress()}
+      hitSlop={4}
+      pointerEvents="auto"
       style={[
         styles.zone,
         {
@@ -103,36 +105,51 @@ export function ScreenContainer({
         {...({ delaysContentTouches: false, contentInsetAdjustmentBehavior: 'never' } as any)}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={{ width: frameWidth, height: middleContentH, overflow: 'hidden' }}>
-          <Image
-            source={source}
-            style={{ width: frameWidth, height: fullFrameHeight, position: 'absolute', top: -stickyTopH }}
-            resizeMode="contain"
-          />
+        <View
+          style={{ width: frameWidth, height: middleContentH, overflow: 'hidden' }}
+          pointerEvents="box-none"
+        >
+          <View style={{ width: frameWidth, height: fullFrameHeight, position: 'absolute', top: -stickyTopH }} pointerEvents="none">
+            <Image
+              source={source}
+              style={{ width: frameWidth, height: fullFrameHeight }}
+              resizeMode="contain"
+            />
+          </View>
           {middleZones.map((z, i) => renderZone(z, i, stickyTopFrac))}
         </View>
       </ScrollView>
 
       {/* Sticky top region */}
       {stickyTopFrac > 0 && (
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: stickyTopH, overflow: 'hidden' }}>
-          <Image
-            source={source}
-            style={{ width: frameWidth, height: fullFrameHeight, position: 'absolute', top: 0 }}
-            resizeMode="contain"
-          />
+        <View
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, height: stickyTopH, overflow: 'hidden' }}
+          pointerEvents="box-none"
+        >
+          <View style={{ width: frameWidth, height: fullFrameHeight, position: 'absolute', top: 0 }} pointerEvents="none">
+            <Image
+              source={source}
+              style={{ width: frameWidth, height: fullFrameHeight }}
+              resizeMode="contain"
+            />
+          </View>
           {topZones.map((z, i) => renderZone(z, i, 0))}
         </View>
       )}
 
       {/* Sticky bottom region */}
       {stickyBottomFrac < 1 && (
-        <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: stickyBottomH, overflow: 'hidden' }}>
-          <Image
-            source={source}
-            style={{ width: frameWidth, height: fullFrameHeight, position: 'absolute', top: -(stickyBottomFrac * fullFrameHeight) }}
-            resizeMode="contain"
-          />
+        <View
+          style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: stickyBottomH, overflow: 'hidden' }}
+          pointerEvents="box-none"
+        >
+          <View style={{ width: frameWidth, height: fullFrameHeight, position: 'absolute', top: -(stickyBottomFrac * fullFrameHeight) }} pointerEvents="none">
+            <Image
+              source={source}
+              style={{ width: frameWidth, height: fullFrameHeight }}
+              resizeMode="contain"
+            />
+          </View>
           {bottomZones.map((z, i) => renderZone(z, i, stickyBottomFrac))}
         </View>
       )}
