@@ -46,9 +46,16 @@ export function ScreenContainer({
   debug = false,
   scrollEnabled = true,
 }: ScreenContainerProps) {
-  const { width: screenWidth } = useWindowDimensions();
-  const frameWidth = screenWidth;
-  const frameHeight = frameWidth / aspectRatio;
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  // Scale the rendered frame to fit BOTH device width and height (contain mode).
+  // Designs taller than the iPhone viewport (e.g. 393×1008 on a 393×852 phone)
+  // would otherwise extend below the fold; this guarantees terms / CTAs sit
+  // inside one visible screen at the cost of a small horizontal letterbox.
+  const widthScale = screenWidth / 393;
+  const heightScale = screenHeight / (393 / aspectRatio);
+  const scale = Math.min(widthScale, heightScale);
+  const frameWidth = 393 * scale;
+  const frameHeight = (393 / aspectRatio) * scale;
 
   return (
     <View style={styles.root}>
@@ -56,8 +63,9 @@ export function ScreenContainer({
         scrollEnabled={scrollEnabled}
         bounces
         showsVerticalScrollIndicator={false}
-        {...({ delaysContentTouches: false } as any)}
+        {...({ delaysContentTouches: false, contentInsetAdjustmentBehavior: 'never' } as any)}
         keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ alignItems: 'center', justifyContent: 'center', minHeight: '100%' }}
       >
         <View style={{ width: frameWidth, height: frameHeight }}>
           <Image
