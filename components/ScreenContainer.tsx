@@ -59,6 +59,10 @@ export function ScreenContainer({
         scrollEnabled={scrollEnabled}
         bounces={false}
         showsVerticalScrollIndicator={false}
+        // iOS-only: makes Pressable children respond instantly without waiting for
+        // ScrollView's tap-vs-scroll disambiguation. Type def is stale; cast via spread.
+        {...({ delaysContentTouches: false } as any)}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ alignItems: 'center' }}
       >
         <View style={{ width: frameWidth, height: frameHeight }}>

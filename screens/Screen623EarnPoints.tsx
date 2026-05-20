@@ -18,8 +18,8 @@ export function Screen623EarnPoints() {
       source={require('../assets/frames/623.png')}
       aspectRatio={393 / 920}
       zones={[
-        // Close X
-        { top: 0.620, left: 0.81, width: 0.15, height: 0.04, onPress: () => nav.navigate('VerifyingWithCta'), debugLabel: 'Close → back to Verifying' },
+        // Close X — sheet top-right
+        { top: 0.595, left: 0.78, width: 0.20, height: 0.06, onPress: () => nav.navigate('VerifyingWithCta'), debugLabel: 'Close → back to Verifying' },
         // Get 200 — Courtney
         { top: 0.755, left: 0.55, width: 0.27, height: 0.04, onPress: tapAthlete, debugLabel: 'Get 200 Courtney' },
         // Get 200 — Leslie

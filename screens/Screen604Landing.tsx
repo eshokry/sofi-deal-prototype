@@ -61,8 +61,8 @@ export function Screen604Landing() {
         { top: 0.75, left: 0.04, width: 0.30, height: 0.07, onPress: () => {}, debugLabel: 'Chip 1 (TBD)' },
         { top: 0.75, left: 0.36, width: 0.30, height: 0.07, onPress: () => {}, debugLabel: 'Chip 2 (TBD)' },
         { top: 0.75, left: 0.66, width: 0.30, height: 0.07, onPress: () => {}, debugLabel: 'Chip 3 (TBD)' },
-        // Terms link bottom
-        { top: 0.95, left: 0.30, width: 0.50, height: 0.04, onPress: () => {}, debugLabel: 'Terms (TBD)' },
+        // Terms link bottom — widen vertical band for forgiving tap target
+        { top: 0.92, left: 0.20, width: 0.70, height: 0.06, onPress: () => {}, debugLabel: 'Terms (TBD)' },
       ]}
     />
   );
