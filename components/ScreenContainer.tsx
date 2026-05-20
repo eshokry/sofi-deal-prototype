@@ -8,7 +8,6 @@ import {
   StyleSheet,
   useWindowDimensions,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export type TapZone = {
   /** Top edge as a fraction of the frame height (0-1). */
@@ -25,22 +24,19 @@ export type TapZone = {
 
 export type ScreenContainerProps = {
   source: ImageSourcePropType;
-  /** Source PNG aspect ratio (width / height). */
   aspectRatio?: number;
   zones?: TapZone[];
-  /** Optional Gesture component (e.g. swipe handler) rendered over the image. */
   overlay?: React.ReactNode;
-  /** If true, render translucent yellow on each zone for debugging. */
   debug?: boolean;
-  /** If false, lock vertical scroll (useful for celebration screens that fit). */
   scrollEnabled?: boolean;
 };
 
 /**
- * Renders a Figma frame PNG fitting the device width, wrapped in a ScrollView so
- * tall frames (the SoFi flow ranges 880-1008px tall) can scroll to expose buttons
- * at the bottom on shorter devices. Tap zones use absolute positioning inside the
- * scroll content so they scroll together with the image.
+ * Renders a Figma frame PNG edge-to-edge by ignoring safe-area insets (the PNG
+ * includes its own drawn iOS chrome — 9:41 status bar, dynamic island, signal —
+ * so the PNG IS the chrome). Tap zones are absolute-positioned over the image
+ * inside a ScrollView so vertical scrolling reaches bottom content (e.g. the
+ * Terms link on 604 which sits below the typical iPhone viewport fold).
  */
 export function ScreenContainer({
   source,
@@ -51,21 +47,17 @@ export function ScreenContainer({
   scrollEnabled = true,
 }: ScreenContainerProps) {
   const { width: screenWidth } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
   const frameWidth = screenWidth;
   const frameHeight = frameWidth / aspectRatio;
 
   return (
-    <View style={[styles.root, { marginTop: -insets.top }]}>
+    <View style={styles.root}>
       <ScrollView
         scrollEnabled={scrollEnabled}
-        bounces={false}
+        bounces
         showsVerticalScrollIndicator={false}
-        // iOS-only: makes Pressable children respond instantly without waiting for
-        // ScrollView's tap-vs-scroll disambiguation. Type def is stale; cast via spread.
         {...({ delaysContentTouches: false } as any)}
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ alignItems: 'center' }}
       >
         <View style={{ width: frameWidth, height: frameHeight }}>
           <Image
@@ -99,7 +91,11 @@ export function ScreenContainer({
 
 const styles = StyleSheet.create({
   root: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: '#fff',
   },
   zone: {
