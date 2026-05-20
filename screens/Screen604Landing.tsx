@@ -4,14 +4,21 @@ import { useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { ScreenContainer } from '../components/ScreenContainer';
 
-// Frame 604 — Landing. The deal card area accepts a horizontal swipe gesture.
-// Real behavior: swiping the card sideways before accepting fires the 597 Start modal.
+// Frame 604 — Landing. Two valid interactions:
+//   1. TAP "Start the deal" button (on the deal card) → directly accepts the
+//      deal and advances to 605 Progress 33%.
+//   2. SWIPE the deal card sideways before accepting → 597 modal warns + offers
+//      its own Start-the-deal CTA.
 export function Screen604Landing() {
   const nav = useNavigation<any>();
   const { width: screenWidth } = useWindowDimensions();
-  // Compute frameHeight to mirror ScreenContainer's contain layout.
   const aspectRatio = 393 / 1008;
   const frameHeight = screenWidth / aspectRatio;
+
+  const acceptDeal = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    nav.navigate('Progress33');
+  };
 
   const fireStartModal = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -31,15 +38,16 @@ export function Screen604Landing() {
     }),
   ).current;
 
-  // Overlay: an invisible swipe-capture View positioned over the deal card area.
-  // Card area is roughly y=0.13–0.53 (after status bar + top nav + before chips row).
+  // Swipe-capture overlay positioned over the card title + pills area only,
+  // NOT covering the Start the deal button (so taps on it still register).
+  // Card extends from y=0.13 to y=0.54 of frame (above the button at y=0.55).
   const swipeOverlay = (
     <View
       style={[
         styles.swipe,
         {
           top: frameHeight * 0.13,
-          height: frameHeight * 0.40,
+          height: frameHeight * 0.41,
           width: screenWidth,
         },
       ]}
@@ -53,16 +61,22 @@ export function Screen604Landing() {
       aspectRatio={393 / 1008}
       overlay={swipeOverlay}
       zones={[
+        // Start the deal — primary CTA on the deal card
+        {
+          top: 0.547, left: 0.075, width: 0.85, height: 0.062,
+          onPress: acceptDeal,
+          debugLabel: 'Start the deal → 605',
+        },
         // 3-dots top-right — menu1 modal (next commit)
-        { top: 0.06, left: 0.81, width: 0.16, height: 0.05, onPress: () => {}, debugLabel: '3-dots (menu1 TBD)' },
+        { top: 0.045, left: 0.81, width: 0.16, height: 0.05, onPress: () => {}, debugLabel: '3-dots (menu1 TBD)' },
         // Back arrow
-        { top: 0.06, left: 0.025, width: 0.16, height: 0.05, onPress: () => nav.goBack(), debugLabel: 'Back' },
-        // Suggested chips (601/602/603 TBD)
-        { top: 0.75, left: 0.04, width: 0.30, height: 0.07, onPress: () => {}, debugLabel: 'Chip 1 (TBD)' },
-        { top: 0.75, left: 0.36, width: 0.30, height: 0.07, onPress: () => {}, debugLabel: 'Chip 2 (TBD)' },
-        { top: 0.75, left: 0.66, width: 0.30, height: 0.07, onPress: () => {}, debugLabel: 'Chip 3 (TBD)' },
-        // Terms link bottom — widen vertical band for forgiving tap target
-        { top: 0.92, left: 0.20, width: 0.70, height: 0.06, onPress: () => {}, debugLabel: 'Terms (TBD)' },
+        { top: 0.045, left: 0.025, width: 0.16, height: 0.05, onPress: () => nav.goBack(), debugLabel: 'Back' },
+        // Suggested chips
+        { top: 0.795, left: 0.04, width: 0.30, height: 0.07, onPress: () => {}, debugLabel: 'Chip 1 (TBD)' },
+        { top: 0.795, left: 0.36, width: 0.30, height: 0.07, onPress: () => {}, debugLabel: 'Chip 2 (TBD)' },
+        { top: 0.795, left: 0.66, width: 0.30, height: 0.07, onPress: () => {}, debugLabel: 'Chip 3 (TBD)' },
+        // Terms link bottom
+        { top: 0.94, left: 0.20, width: 0.70, height: 0.04, onPress: () => {}, debugLabel: 'Terms (TBD)' },
       ]}
     />
   );
@@ -72,6 +86,5 @@ const styles = StyleSheet.create({
   swipe: {
     position: 'absolute',
     left: 0,
-    // backgroundColor: 'rgba(255,0,0,0.1)', // uncomment to visualize
   },
 });
