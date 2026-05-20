@@ -10,13 +10,9 @@ import {
 } from 'react-native';
 
 export type TapZone = {
-  /** Top edge as a fraction of the frame height (0-1). */
   top: number;
-  /** Left edge as a fraction of the frame width (0-1). */
   left: number;
-  /** Width as a fraction of the frame width (0-1). */
   width: number;
-  /** Height as a fraction of the frame height (0-1). */
   height: number;
   onPress: () => void;
   debugLabel?: string;
@@ -29,14 +25,26 @@ export type ScreenContainerProps = {
   overlay?: React.ReactNode;
   debug?: boolean;
   scrollEnabled?: boolean;
+  /**
+   * Fractional Y in frame coords where the sticky top region ends.
+   * Default 0 = no sticky top. Common: 0.13 (covers iOS status bar + top nav).
+   */
+  stickyTopFrac?: number;
+  /**
+   * Fractional Y in frame coords where the sticky bottom region starts.
+   * Default 1 = no sticky bottom. Common: 0.78 (covers chips + input + terms).
+   */
+  stickyBottomFrac?: number;
 };
 
 /**
- * Renders a Figma frame PNG edge-to-edge by ignoring safe-area insets (the PNG
- * includes its own drawn iOS chrome — 9:41 status bar, dynamic island, signal —
- * so the PNG IS the chrome). Tap zones are absolute-positioned over the image
- * inside a ScrollView so vertical scrolling reaches bottom content (e.g. the
- * Terms link on 604 which sits below the typical iPhone viewport fold).
+ * Renders a Figma frame PNG with optional sticky top/bottom regions so that
+ * status bar + top nav stay fixed at the device top edge and chat input +
+ * terms stay fixed at the bottom, while the middle (e.g. deal card) scrolls.
+ * Matches the production app's layout pattern.
+ *
+ * The full-resolution PNG is rendered into three overflow:hidden viewports,
+ * each offsetting the same Image so only the desired Y band is visible.
  */
 export function ScreenContainer({
   source,
@@ -45,54 +53,91 @@ export function ScreenContainer({
   overlay,
   debug = false,
   scrollEnabled = true,
+  stickyTopFrac = 0,
+  stickyBottomFrac = 1,
 }: ScreenContainerProps) {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  // Scale the rendered frame to fit BOTH device width and height (contain mode).
-  // Designs taller than the iPhone viewport (e.g. 393×1008 on a 393×852 phone)
-  // would otherwise extend below the fold; this guarantees terms / CTAs sit
-  // inside one visible screen at the cost of a small horizontal letterbox.
-  const widthScale = screenWidth / 393;
-  const heightScale = screenHeight / (393 / aspectRatio);
-  const scale = Math.min(widthScale, heightScale);
-  const frameWidth = 393 * scale;
-  const frameHeight = (393 / aspectRatio) * scale;
+  const frameWidth = screenWidth;
+  const fullFrameHeight = frameWidth / aspectRatio;
+
+  // Sticky-section heights in screen pt.
+  const stickyTopH = stickyTopFrac * fullFrameHeight;
+  const stickyBottomH = (1 - stickyBottomFrac) * fullFrameHeight;
+  const middleAvailable = screenHeight - stickyTopH - stickyBottomH;
+  const middleContentH = (stickyBottomFrac - stickyTopFrac) * fullFrameHeight;
+
+  // Helper to categorize zones by which region they belong in.
+  const topZones = zones.filter((z) => z.top + z.height <= stickyTopFrac + 0.001);
+  const bottomZones = zones.filter((z) => z.top >= stickyBottomFrac - 0.001);
+  const middleZones = zones.filter(
+    (z) => z.top > stickyTopFrac - 0.001 && z.top < stickyBottomFrac - 0.001
+      && !(z.top + z.height <= stickyTopFrac + 0.001),
+  );
+
+  const renderZone = (z: TapZone, i: number, basisTop: number) => (
+    <Pressable
+      key={i}
+      onPress={z.onPress}
+      style={[
+        styles.zone,
+        {
+          top: (z.top - basisTop) * fullFrameHeight,
+          left: z.left * frameWidth,
+          width: z.width * frameWidth,
+          height: z.height * fullFrameHeight,
+        },
+        debug && styles.zoneDebug,
+      ]}
+      accessibilityLabel={z.debugLabel}
+    />
+  );
 
   return (
     <View style={styles.root}>
+      {/* Middle scrollable region (rendered first so sticky regions overlay) */}
       <ScrollView
-        scrollEnabled={scrollEnabled}
-        bounces
+        style={{ position: 'absolute', top: stickyTopH, left: 0, right: 0, bottom: stickyBottomH }}
+        scrollEnabled={scrollEnabled && middleContentH > middleAvailable}
+        bounces={middleContentH > middleAvailable}
         showsVerticalScrollIndicator={false}
         {...({ delaysContentTouches: false, contentInsetAdjustmentBehavior: 'never' } as any)}
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ alignItems: 'center', justifyContent: 'center', minHeight: '100%' }}
       >
-        <View style={{ width: frameWidth, height: frameHeight }}>
+        <View style={{ width: frameWidth, height: middleContentH, overflow: 'hidden' }}>
           <Image
             source={source}
-            style={{ width: frameWidth, height: frameHeight }}
+            style={{ width: frameWidth, height: fullFrameHeight, position: 'absolute', top: -stickyTopH }}
             resizeMode="contain"
           />
-          {zones.map((z, i) => (
-            <Pressable
-              key={i}
-              onPress={z.onPress}
-              style={[
-                styles.zone,
-                {
-                  top: z.top * frameHeight,
-                  left: z.left * frameWidth,
-                  width: z.width * frameWidth,
-                  height: z.height * frameHeight,
-                },
-                debug && styles.zoneDebug,
-              ]}
-              accessibilityLabel={z.debugLabel}
-            />
-          ))}
-          {overlay}
+          {middleZones.map((z, i) => renderZone(z, i, stickyTopFrac))}
         </View>
       </ScrollView>
+
+      {/* Sticky top region */}
+      {stickyTopFrac > 0 && (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: stickyTopH, overflow: 'hidden' }}>
+          <Image
+            source={source}
+            style={{ width: frameWidth, height: fullFrameHeight, position: 'absolute', top: 0 }}
+            resizeMode="contain"
+          />
+          {topZones.map((z, i) => renderZone(z, i, 0))}
+        </View>
+      )}
+
+      {/* Sticky bottom region */}
+      {stickyBottomFrac < 1 && (
+        <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: stickyBottomH, overflow: 'hidden' }}>
+          <Image
+            source={source}
+            style={{ width: frameWidth, height: fullFrameHeight, position: 'absolute', top: -(stickyBottomFrac * fullFrameHeight) }}
+            resizeMode="contain"
+          />
+          {bottomZones.map((z, i) => renderZone(z, i, stickyBottomFrac))}
+        </View>
+      )}
+
+      {overlay}
     </View>
   );
 }

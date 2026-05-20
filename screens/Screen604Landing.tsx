@@ -60,6 +60,8 @@ export function Screen604Landing() {
       source={require('../assets/frames/604.png')}
       aspectRatio={393 / 1008}
       overlay={swipeOverlay}
+      stickyTopFrac={0.135}
+      stickyBottomFrac={0.78}
       zones={[
         // Start the deal — primary CTA on the deal card
         {
