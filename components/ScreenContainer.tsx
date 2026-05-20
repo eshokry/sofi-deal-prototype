@@ -109,25 +109,35 @@ export function ScreenContainer({
         </View>
       )}
 
-      {/* Middle */}
+      {/* Middle — bare View when scroll disabled (eliminates ScrollView's
+          tap-vs-scroll handoff which can swallow Pressable taps on iOS) */}
       <View style={{ flex: 1, overflow: 'hidden' }} pointerEvents="box-none">
-        <ScrollView
-          scrollEnabled={scrollEnabled && middleContentH > 0}
-          bounces={false}
-          showsVerticalScrollIndicator={false}
-          {...({ delaysContentTouches: false, contentInsetAdjustmentBehavior: 'never' } as any)}
-          keyboardShouldPersistTaps="handled"
-          style={{ flex: 1 }}
-          contentContainerStyle={{ height: middleContentH }}
-        >
+        {scrollEnabled ? (
+          <ScrollView
+            bounces={false}
+            showsVerticalScrollIndicator={false}
+            {...({ delaysContentTouches: false, contentInsetAdjustmentBehavior: 'never' } as any)}
+            keyboardShouldPersistTaps="handled"
+            style={{ flex: 1 }}
+            contentContainerStyle={{ height: middleContentH }}
+          >
+            <View
+              style={{ width: frameWidth, height: middleContentH, position: 'relative' }}
+              pointerEvents="box-none"
+            >
+              <ImgSlice topOffset={-topH} />
+              {zones.filter(inMiddle).map((z, i) => renderZone(z, i, stickyTopFrac))}
+            </View>
+          </ScrollView>
+        ) : (
           <View
-            style={{ width: frameWidth, height: middleContentH, position: 'relative' }}
+            style={{ flex: 1, position: 'relative' }}
             pointerEvents="box-none"
           >
             <ImgSlice topOffset={-topH} />
             {zones.filter(inMiddle).map((z, i) => renderZone(z, i, stickyTopFrac))}
           </View>
-        </ScrollView>
+        )}
       </View>
 
       {/* Sticky bottom */}
