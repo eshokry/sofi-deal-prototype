@@ -8,6 +8,7 @@ import {
   StyleSheet,
   useWindowDimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export type TapZone = {
   /** Top edge as a fraction of the frame height (0-1). */
@@ -50,11 +51,12 @@ export function ScreenContainer({
   scrollEnabled = true,
 }: ScreenContainerProps) {
   const { width: screenWidth } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const frameWidth = screenWidth;
   const frameHeight = frameWidth / aspectRatio;
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { marginTop: -insets.top }]}>
       <ScrollView
         scrollEnabled={scrollEnabled}
         bounces={false}
