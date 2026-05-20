@@ -4,11 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { ScreenContainer } from '../components/ScreenContainer';
 
-// Frame 604 — Landing. Two valid interactions:
-//   1. TAP "Start the deal" button (on the deal card) → directly accepts the
-//      deal and advances to 605 Progress 33%.
-//   2. SWIPE the deal card sideways before accepting → 597 modal warns + offers
-//      its own Start-the-deal CTA.
+// Frame 604 — Landing. Zone positions measured against the 1179×3024 @3x PNG.
 export function Screen604Landing() {
   const nav = useNavigation<any>();
   const { width: screenWidth } = useWindowDimensions();
@@ -19,7 +15,6 @@ export function Screen604Landing() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     nav.navigate('Progress33');
   };
-
   const fireStartModal = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     nav.navigate('StartModal');
@@ -29,25 +24,20 @@ export function Screen604Landing() {
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, g) =>
         Math.abs(g.dx) > 15 && Math.abs(g.dx) > Math.abs(g.dy),
-      onPanResponderGrant: () => {},
       onPanResponderRelease: (_, g) => {
-        if (Math.abs(g.dx) > 40) {
-          fireStartModal();
-        }
+        if (Math.abs(g.dx) > 40) fireStartModal();
       },
     }),
   ).current;
 
-  // Swipe-capture overlay positioned over the card title + pills area only,
-  // NOT covering the Start the deal button (so taps on it still register).
-  // Card extends from y=0.13 to y=0.54 of frame (above the button at y=0.55).
+  // Card area swipe overlay — between title and button.
   const swipeOverlay = (
     <View
       style={[
         styles.swipe,
         {
-          top: frameHeight * 0.13,
-          height: frameHeight * 0.41,
+          top: frameHeight * 0.135,
+          height: frameHeight * 0.54,
           width: screenWidth,
         },
       ]}
@@ -59,28 +49,23 @@ export function Screen604Landing() {
     <ScreenContainer
       source={require('../assets/frames/604.png')}
       aspectRatio={393 / 1008}
-      overlay={swipeOverlay}
       stickyTopFrac={0.135}
       stickyBottomFrac={0.78}
       scrollEnabled={false}
-      debug
+      overlay={swipeOverlay}
       zones={[
+        // Back arrow (top nav, left)
+        { top: 0.066, left: 0.025, width: 0.18, height: 0.046, onPress: () => nav.goBack(), debugLabel: 'Back' },
+        // 3-dots (top nav, right)
+        { top: 0.066, left: 0.795, width: 0.18, height: 0.046, onPress: () => {}, debugLabel: '3-dots (menu1 TBD)' },
         // Start the deal — primary CTA on the deal card
-        {
-          top: 0.547, left: 0.075, width: 0.85, height: 0.062,
-          onPress: acceptDeal,
-          debugLabel: 'Start the deal → 605',
-        },
-        // 3-dots top-right — menu1 modal (next commit)
-        { top: 0.045, left: 0.81, width: 0.16, height: 0.05, onPress: () => {}, debugLabel: '3-dots (menu1 TBD)' },
-        // Back arrow
-        { top: 0.045, left: 0.025, width: 0.16, height: 0.05, onPress: () => nav.goBack(), debugLabel: 'Back' },
-        // Suggested chips
-        { top: 0.795, left: 0.04, width: 0.30, height: 0.07, onPress: () => {}, debugLabel: 'Chip 1 (TBD)' },
-        { top: 0.795, left: 0.36, width: 0.30, height: 0.07, onPress: () => {}, debugLabel: 'Chip 2 (TBD)' },
-        { top: 0.795, left: 0.66, width: 0.30, height: 0.07, onPress: () => {}, debugLabel: 'Chip 3 (TBD)' },
-        // Terms link bottom
-        { top: 0.94, left: 0.20, width: 0.70, height: 0.04, onPress: () => {}, debugLabel: 'Terms (TBD)' },
+        { top: 0.679, left: 0.075, width: 0.85, height: 0.062, onPress: acceptDeal, debugLabel: 'Start the deal' },
+        // Suggested chips (within sticky bottom band)
+        { top: 0.820, left: 0.04, width: 0.30, height: 0.066, onPress: () => {}, debugLabel: 'Chip 1 (TBD)' },
+        { top: 0.820, left: 0.36, width: 0.30, height: 0.066, onPress: () => {}, debugLabel: 'Chip 2 (TBD)' },
+        { top: 0.820, left: 0.66, width: 0.30, height: 0.066, onPress: () => {}, debugLabel: 'Chip 3 (TBD)' },
+        // Terms link — just the word + arrow at right of footer line
+        { top: 0.955, left: 0.65, width: 0.30, height: 0.030, onPress: () => {}, debugLabel: 'Terms (TBD)' },
       ]}
     />
   );
