@@ -25,26 +25,25 @@ export type ScreenContainerProps = {
   overlay?: React.ReactNode;
   debug?: boolean;
   scrollEnabled?: boolean;
-  /**
-   * Fractional Y in frame coords where the sticky top region ends.
-   * Default 0 = no sticky top. Common: 0.13 (covers iOS status bar + top nav).
-   */
+  /** Y fraction (0-1) where the sticky top region ends. Default 0 = none. */
   stickyTopFrac?: number;
-  /**
-   * Fractional Y in frame coords where the sticky bottom region starts.
-   * Default 1 = no sticky bottom. Common: 0.78 (covers chips + input + terms).
-   */
+  /** Y fraction (0-1) where the sticky bottom region starts. Default 1 = none. */
   stickyBottomFrac?: number;
 };
 
 /**
- * Renders a Figma frame PNG with optional sticky top/bottom regions so that
- * status bar + top nav stay fixed at the device top edge and chat input +
- * terms stay fixed at the bottom, while the middle (e.g. deal card) scrolls.
- * Matches the production app's layout pattern.
+ * Flexbox-based ScreenContainer:
+ *   ┌──────────────────────────────┐
+ *   │ Sticky Top  (overflow:hidden)│ fixed height = stickyTopFrac * imgH
+ *   ├──────────────────────────────┤
+ *   │ Middle (flex:1, scrollable)  │ fills remaining viewport
+ *   ├──────────────────────────────┤
+ *   │ Sticky Bottom (overflow:hidd)│ fixed height = (1-stickyBottomFrac) * imgH
+ *   └──────────────────────────────┘
  *
- * The full-resolution PNG is rendered into three overflow:hidden viewports,
- * each offsetting the same Image so only the desired Y band is visible.
+ * Each section renders the full PNG offset so only its slice shows. Pressables
+ * are absolutely positioned inside each section. Image is wrapped in a
+ * pointerEvents=none View so it never captures touches.
  */
 export function ScreenContainer({
   source,
@@ -56,37 +55,30 @@ export function ScreenContainer({
   stickyTopFrac = 0,
   stickyBottomFrac = 1,
 }: ScreenContainerProps) {
-  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const { width: screenWidth } = useWindowDimensions();
   const frameWidth = screenWidth;
-  const fullFrameHeight = frameWidth / aspectRatio;
+  const imgH = frameWidth / aspectRatio;
+  const topH = stickyTopFrac * imgH;
+  const bottomH = (1 - stickyBottomFrac) * imgH;
+  const middleContentH = (stickyBottomFrac - stickyTopFrac) * imgH;
 
-  // Sticky-section heights in screen pt.
-  const stickyTopH = stickyTopFrac * fullFrameHeight;
-  const stickyBottomH = (1 - stickyBottomFrac) * fullFrameHeight;
-  const middleAvailable = screenHeight - stickyTopH - stickyBottomH;
-  const middleContentH = (stickyBottomFrac - stickyTopFrac) * fullFrameHeight;
-
-  // Helper to categorize zones by which region they belong in.
-  const topZones = zones.filter((z) => z.top + z.height <= stickyTopFrac + 0.001);
-  const bottomZones = zones.filter((z) => z.top >= stickyBottomFrac - 0.001);
-  const middleZones = zones.filter(
-    (z) => z.top > stickyTopFrac - 0.001 && z.top < stickyBottomFrac - 0.001
-      && !(z.top + z.height <= stickyTopFrac + 0.001),
-  );
+  const inTop = (z: TapZone) => z.top + z.height <= stickyTopFrac + 0.001;
+  const inBottom = (z: TapZone) => z.top >= stickyBottomFrac - 0.001;
+  const inMiddle = (z: TapZone) => !inTop(z) && !inBottom(z);
 
   const renderZone = (z: TapZone, i: number, basisTop: number) => (
     <Pressable
-      key={i}
+      key={`z-${i}-${z.debugLabel ?? ''}`}
       onPress={() => z.onPress()}
       hitSlop={4}
-      pointerEvents="auto"
       style={[
-        styles.zone,
         {
-          top: (z.top - basisTop) * fullFrameHeight,
+          position: 'absolute',
+          top: (z.top - basisTop) * imgH,
           left: z.left * frameWidth,
           width: z.width * frameWidth,
-          height: z.height * fullFrameHeight,
+          height: z.height * imgH,
+          zIndex: 100,
         },
         debug && styles.zoneDebug,
       ]}
@@ -94,63 +86,55 @@ export function ScreenContainer({
     />
   );
 
+  const ImgSlice = ({ topOffset }: { topOffset: number }) => (
+    <View
+      style={{ position: 'absolute', top: topOffset, left: 0, width: frameWidth, height: imgH }}
+      pointerEvents="none"
+    >
+      <Image
+        source={source}
+        style={{ width: frameWidth, height: imgH }}
+        resizeMode="contain"
+      />
+    </View>
+  );
+
   return (
     <View style={styles.root}>
-      {/* Middle scrollable region (rendered first so sticky regions overlay) */}
-      <ScrollView
-        style={{ position: 'absolute', top: stickyTopH, left: 0, right: 0, bottom: stickyBottomH }}
-        scrollEnabled={scrollEnabled && middleContentH > middleAvailable}
-        bounces={middleContentH > middleAvailable}
-        showsVerticalScrollIndicator={false}
-        {...({ delaysContentTouches: false, contentInsetAdjustmentBehavior: 'never' } as any)}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View
-          style={{ width: frameWidth, height: middleContentH, overflow: 'hidden' }}
-          pointerEvents="box-none"
-        >
-          <View style={{ width: frameWidth, height: fullFrameHeight, position: 'absolute', top: -stickyTopH }} pointerEvents="none">
-            <Image
-              source={source}
-              style={{ width: frameWidth, height: fullFrameHeight }}
-              resizeMode="contain"
-            />
-          </View>
-          {middleZones.map((z, i) => renderZone(z, i, stickyTopFrac))}
-        </View>
-      </ScrollView>
-
-      {/* Sticky top region */}
+      {/* Sticky top */}
       {stickyTopFrac > 0 && (
-        <View
-          style={{ position: 'absolute', top: 0, left: 0, right: 0, height: stickyTopH, overflow: 'hidden' }}
-          pointerEvents="box-none"
-        >
-          <View style={{ width: frameWidth, height: fullFrameHeight, position: 'absolute', top: 0 }} pointerEvents="none">
-            <Image
-              source={source}
-              style={{ width: frameWidth, height: fullFrameHeight }}
-              resizeMode="contain"
-            />
-          </View>
-          {topZones.map((z, i) => renderZone(z, i, 0))}
+        <View style={{ height: topH, overflow: 'hidden' }} pointerEvents="box-none">
+          <ImgSlice topOffset={0} />
+          {zones.filter(inTop).map((z, i) => renderZone(z, i, 0))}
         </View>
       )}
 
-      {/* Sticky bottom region */}
-      {stickyBottomFrac < 1 && (
-        <View
-          style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: stickyBottomH, overflow: 'hidden' }}
-          pointerEvents="box-none"
+      {/* Middle */}
+      <View style={{ flex: 1, overflow: 'hidden' }} pointerEvents="box-none">
+        <ScrollView
+          scrollEnabled={scrollEnabled && middleContentH > 0}
+          bounces={false}
+          showsVerticalScrollIndicator={false}
+          {...({ delaysContentTouches: false, contentInsetAdjustmentBehavior: 'never' } as any)}
+          keyboardShouldPersistTaps="handled"
+          style={{ flex: 1 }}
+          contentContainerStyle={{ height: middleContentH }}
         >
-          <View style={{ width: frameWidth, height: fullFrameHeight, position: 'absolute', top: -(stickyBottomFrac * fullFrameHeight) }} pointerEvents="none">
-            <Image
-              source={source}
-              style={{ width: frameWidth, height: fullFrameHeight }}
-              resizeMode="contain"
-            />
+          <View
+            style={{ width: frameWidth, height: middleContentH, position: 'relative' }}
+            pointerEvents="box-none"
+          >
+            <ImgSlice topOffset={-topH} />
+            {zones.filter(inMiddle).map((z, i) => renderZone(z, i, stickyTopFrac))}
           </View>
-          {bottomZones.map((z, i) => renderZone(z, i, stickyBottomFrac))}
+        </ScrollView>
+      </View>
+
+      {/* Sticky bottom */}
+      {stickyBottomFrac < 1 && (
+        <View style={{ height: bottomH, overflow: 'hidden' }} pointerEvents="box-none">
+          <ImgSlice topOffset={-(stickyBottomFrac * imgH)} />
+          {zones.filter(inBottom).map((z, i) => renderZone(z, i, stickyBottomFrac))}
         </View>
       )}
 
@@ -161,15 +145,8 @@ export function ScreenContainer({
 
 const styles = StyleSheet.create({
   root: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    flex: 1,
     backgroundColor: '#fff',
-  },
-  zone: {
-    position: 'absolute',
   },
   zoneDebug: {
     backgroundColor: 'rgba(255, 235, 59, 0.4)',

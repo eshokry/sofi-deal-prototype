@@ -19,6 +19,9 @@ export function Screen641Verifying() {
     <ScreenContainer
       source={require('../assets/frames/641.png')}
       aspectRatio={393 / 920}
+      stickyTopFrac={0.13}
+      stickyBottomFrac={0.82}
+      scrollEnabled={false}
       zones={[
         { top: 0.0, left: 0.0, width: 1.0, height: 1.0,
           onPress: () => nav.navigate('PartialReward'),

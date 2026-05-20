@@ -11,6 +11,9 @@ export function Screen641VerifyingWithCta() {
     <ScreenContainer
       source={require('../assets/frames/641.png')}
       aspectRatio={393 / 920}
+      stickyTopFrac={0.13}
+      stickyBottomFrac={0.82}
+      scrollEnabled={false}
       zones={[
         { top: 0.490, left: 0.108, width: 0.78, height: 0.062,
           onPress: () => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); nav.navigate('VerifyComplete'); },
