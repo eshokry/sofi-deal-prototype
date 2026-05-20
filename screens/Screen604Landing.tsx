@@ -63,6 +63,7 @@ export function Screen604Landing() {
       stickyTopFrac={0.135}
       stickyBottomFrac={0.78}
       scrollEnabled={false}
+      debug
       zones={[
         // Start the deal — primary CTA on the deal card
         {
