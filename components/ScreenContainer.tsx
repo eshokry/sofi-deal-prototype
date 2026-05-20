@@ -25,25 +25,35 @@ export type ScreenContainerProps = {
   overlay?: React.ReactNode;
   debug?: boolean;
   scrollEnabled?: boolean;
-  /** Y fraction (0-1) where the sticky top region ends. Default 0 = none. */
+  /**
+   * If set, the bottom region of the image (from this Y fraction down) renders
+   * as a fixed overlay anchored to the device bottom edge — chat input chrome
+   * stays visible without scrolling. The same image is rendered twice: once
+   * in the scrollable area and once clipped as the bottom overlay.
+   */
+  fixedBottomFrac?: number;
+  /** For consistency with old API — ignored in this rewrite. */
   stickyTopFrac?: number;
-  /** Y fraction (0-1) where the sticky bottom region starts. Default 1 = none. */
   stickyBottomFrac?: number;
 };
 
 /**
- * Flexbox-based ScreenContainer:
- *   ┌──────────────────────────────┐
- *   │ Sticky Top  (overflow:hidden)│ fixed height = stickyTopFrac * imgH
- *   ├──────────────────────────────┤
- *   │ Middle (flex:1, scrollable)  │ fills remaining viewport
- *   ├──────────────────────────────┤
- *   │ Sticky Bottom (overflow:hidd)│ fixed height = (1-stickyBottomFrac) * imgH
- *   └──────────────────────────────┘
+ * Simple, predictable layout:
  *
- * Each section renders the full PNG offset so only its slice shows. Pressables
- * are absolutely positioned inside each section. Image is wrapped in a
- * pointerEvents=none View so it never captures touches.
+ *   ┌────────────────────────────┐
+ *   │ ScrollView                 │ image at natural width × imgH,
+ *   │  ┌──────────────────────┐  │ Pressables overlay at absolute coords.
+ *   │  │ Image (full)         │  │
+ *   │  │ Pressables (zones)   │  │
+ *   │  └──────────────────────┘  │
+ *   └────────────────────────────┘
+ *   ┌────────────────────────────┐
+ *   │ Fixed bottom overlay       │ same image clipped to bottom slice
+ *   └────────────────────────────┘ + zones whose frame-y >= fixedBottomFrac
+ *
+ * Zones with `top + height <= fixedBottomFrac` render INSIDE the ScrollView
+ * (scroll with the image). Zones at or below `fixedBottomFrac` render INSIDE
+ * the fixed bottom overlay (stay visible at all times).
  */
 export function ScreenContainer({
   source,
@@ -52,23 +62,19 @@ export function ScreenContainer({
   overlay,
   debug = false,
   scrollEnabled = true,
-  stickyTopFrac = 0,
-  stickyBottomFrac = 1,
+  fixedBottomFrac = 1,
 }: ScreenContainerProps) {
   const { width: screenWidth } = useWindowDimensions();
   const frameWidth = screenWidth;
   const imgH = frameWidth / aspectRatio;
-  const topH = stickyTopFrac * imgH;
-  const bottomH = (1 - stickyBottomFrac) * imgH;
-  const middleContentH = (stickyBottomFrac - stickyTopFrac) * imgH;
+  const bottomH = (1 - fixedBottomFrac) * imgH;
+  const hasFixedBottom = fixedBottomFrac < 1;
 
-  const inTop = (z: TapZone) => z.top + z.height <= stickyTopFrac + 0.001;
-  const inBottom = (z: TapZone) => z.top >= stickyBottomFrac - 0.001;
-  const inMiddle = (z: TapZone) => !inTop(z) && !inBottom(z);
+  const scrollZones = zones.filter((z) => z.top + z.height <= fixedBottomFrac + 0.001);
+  const fixedZones = zones.filter((z) => z.top >= fixedBottomFrac - 0.001);
 
-  const renderZone = (z: TapZone, i: number, basisTop: number) => (
+  const Zone = ({ z, basisTop }: { z: TapZone; basisTop: number }) => (
     <Pressable
-      key={`z-${i}-${z.debugLabel ?? ''}`}
       onPress={() => z.onPress()}
       hitSlop={4}
       style={[
@@ -86,65 +92,54 @@ export function ScreenContainer({
     />
   );
 
-  const ImgSlice = ({ topOffset }: { topOffset: number }) => (
-    <View
-      style={{ position: 'absolute', top: topOffset, left: 0, width: frameWidth, height: imgH }}
-      pointerEvents="none"
-    >
-      <Image
-        source={source}
-        style={{ width: frameWidth, height: imgH }}
-        resizeMode="contain"
-      />
-    </View>
-  );
-
   return (
     <View style={styles.root}>
-      {/* Sticky top */}
-      {stickyTopFrac > 0 && (
-        <View style={{ height: topH, overflow: 'hidden' }} pointerEvents="box-none">
-          <ImgSlice topOffset={0} />
-          {zones.filter(inTop).map((z, i) => renderZone(z, i, 0))}
+      <ScrollView
+        scrollEnabled={scrollEnabled}
+        bounces={false}
+        showsVerticalScrollIndicator={false}
+        {...({ delaysContentTouches: false, contentInsetAdjustmentBehavior: 'never' } as any)}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ paddingBottom: hasFixedBottom ? bottomH : 0 }}
+      >
+        <View style={{ width: frameWidth, height: imgH }} pointerEvents="box-none">
+          <Image
+            source={source}
+            style={{ width: frameWidth, height: imgH }}
+            resizeMode="cover"
+          />
+          {scrollZones.map((z, i) => (
+            <Zone key={`s-${i}`} z={z} basisTop={0} />
+          ))}
         </View>
-      )}
+      </ScrollView>
 
-      {/* Middle — bare View when scroll disabled (eliminates ScrollView's
-          tap-vs-scroll handoff which can swallow Pressable taps on iOS) */}
-      <View style={{ flex: 1, overflow: 'hidden' }} pointerEvents="box-none">
-        {scrollEnabled ? (
-          <ScrollView
-            bounces={false}
-            showsVerticalScrollIndicator={false}
-            {...({ delaysContentTouches: false, contentInsetAdjustmentBehavior: 'never' } as any)}
-            keyboardShouldPersistTaps="handled"
-            style={{ flex: 1 }}
-            contentContainerStyle={{ height: middleContentH }}
-          >
-            <View
-              style={{ width: frameWidth, height: middleContentH, position: 'relative' }}
-              pointerEvents="box-none"
-            >
-              <ImgSlice topOffset={-topH} />
-              {zones.filter(inMiddle).map((z, i) => renderZone(z, i, stickyTopFrac))}
-            </View>
-          </ScrollView>
-        ) : (
-          <View
-            style={{ flex: 1, position: 'relative' }}
-            pointerEvents="box-none"
-          >
-            <ImgSlice topOffset={-topH} />
-            {zones.filter(inMiddle).map((z, i) => renderZone(z, i, stickyTopFrac))}
-          </View>
-        )}
-      </View>
-
-      {/* Sticky bottom */}
-      {stickyBottomFrac < 1 && (
-        <View style={{ height: bottomH, overflow: 'hidden' }} pointerEvents="box-none">
-          <ImgSlice topOffset={-(stickyBottomFrac * imgH)} />
-          {zones.filter(inBottom).map((z, i) => renderZone(z, i, stickyBottomFrac))}
+      {hasFixedBottom && (
+        <View
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: bottomH,
+            overflow: 'hidden',
+            backgroundColor: '#fff',
+          }}
+          pointerEvents="box-none"
+        >
+          <Image
+            source={source}
+            style={{
+              width: frameWidth,
+              height: imgH,
+              position: 'absolute',
+              top: -(fixedBottomFrac * imgH),
+            }}
+            resizeMode="cover"
+          />
+          {fixedZones.map((z, i) => (
+            <Zone key={`f-${i}`} z={z} basisTop={fixedBottomFrac} />
+          ))}
         </View>
       )}
 

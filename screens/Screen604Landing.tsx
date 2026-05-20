@@ -17,9 +17,7 @@ export function Screen604Landing() {
     <ScreenContainer
       source={require('../assets/frames/604.png')}
       aspectRatio={393 / 1008}
-      stickyTopFrac={0.135}
-      stickyBottomFrac={0.78}
-      scrollEnabled={false}
+      fixedBottomFrac={0.78}
       debug
       zones={[
         { top: 0.066, left: 0.025, width: 0.18, height: 0.046, onPress: () => nav.goBack(), debugLabel: 'Back' },
