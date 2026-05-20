@@ -41,7 +41,7 @@ export function RootNavigator() {
         <Stack.Screen name="StartModal" component={Screen597StartModal}
           options={{ presentation: 'transparentModal', animation: 'fade' }} />
         <Stack.Screen name="Progress33" component={Screen605Progress33}
-          options={{ animation: 'fade' }} />
+          options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="Step1Account" component={Screen606Step1Account} />
         <Stack.Screen name="Progress66" component={Screen607Progress66}
           options={{ animation: 'fade' }} />

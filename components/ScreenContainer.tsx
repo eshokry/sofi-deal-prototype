@@ -1,5 +1,13 @@
 import React from 'react';
-import { View, Image, ImageSourcePropType, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
+import {
+  View,
+  Image,
+  ImageSourcePropType,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  useWindowDimensions,
+} from 'react-native';
 
 export type TapZone = {
   /** Top edge as a fraction of the frame height (0-1). */
@@ -11,57 +19,74 @@ export type TapZone = {
   /** Height as a fraction of the frame height (0-1). */
   height: number;
   onPress: () => void;
-  /** Optional debug label rendered as semi-transparent fill. */
   debugLabel?: string;
 };
 
 export type ScreenContainerProps = {
   source: ImageSourcePropType;
-  /** Source PNG aspect ratio (width / height). Most SoFi frames are 393 / variable. */
+  /** Source PNG aspect ratio (width / height). */
   aspectRatio?: number;
   zones?: TapZone[];
-  /** If true, renders translucent yellow overlays on each zone so you can visually verify tap regions. */
+  /** Optional Gesture component (e.g. swipe handler) rendered over the image. */
+  overlay?: React.ReactNode;
+  /** If true, render translucent yellow on each zone for debugging. */
   debug?: boolean;
+  /** If false, lock vertical scroll (useful for celebration screens that fit). */
+  scrollEnabled?: boolean;
 };
 
 /**
- * Renders a full-screen frame PNG with absolute-positioned tap zones overlaid on top.
- * The image scales to fit the device width; the screen vertically fills if shorter than device.
+ * Renders a Figma frame PNG fitting the device width, wrapped in a ScrollView so
+ * tall frames (the SoFi flow ranges 880-1008px tall) can scroll to expose buttons
+ * at the bottom on shorter devices. Tap zones use absolute positioning inside the
+ * scroll content so they scroll together with the image.
  */
 export function ScreenContainer({
   source,
   aspectRatio = 393 / 920,
   zones = [],
+  overlay,
   debug = false,
+  scrollEnabled = true,
 }: ScreenContainerProps) {
   const { width: screenWidth } = useWindowDimensions();
-  // Compute the rendered frame width/height after fitting to the device.
   const frameWidth = screenWidth;
   const frameHeight = frameWidth / aspectRatio;
 
   return (
     <View style={styles.root}>
-      <Image
-        source={source}
-        style={{ width: frameWidth, height: frameHeight, resizeMode: 'cover' }}
-      />
-      {zones.map((z, i) => (
-        <Pressable
-          key={i}
-          onPress={z.onPress}
-          style={[
-            styles.zone,
-            {
-              top: z.top * frameHeight,
-              left: z.left * frameWidth,
-              width: z.width * frameWidth,
-              height: z.height * frameHeight,
-            },
-            debug && styles.zoneDebug,
-          ]}
-          accessibilityLabel={z.debugLabel}
-        />
-      ))}
+      <ScrollView
+        scrollEnabled={scrollEnabled}
+        bounces={false}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ alignItems: 'center' }}
+      >
+        <View style={{ width: frameWidth, height: frameHeight }}>
+          <Image
+            source={source}
+            style={{ width: frameWidth, height: frameHeight }}
+            resizeMode="contain"
+          />
+          {zones.map((z, i) => (
+            <Pressable
+              key={i}
+              onPress={z.onPress}
+              style={[
+                styles.zone,
+                {
+                  top: z.top * frameHeight,
+                  left: z.left * frameWidth,
+                  width: z.width * frameWidth,
+                  height: z.height * frameHeight,
+                },
+                debug && styles.zoneDebug,
+              ]}
+              accessibilityLabel={z.debugLabel}
+            />
+          ))}
+          {overlay}
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -70,7 +95,6 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: '#fff',
-    alignItems: 'center',
   },
   zone: {
     position: 'absolute',
